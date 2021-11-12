@@ -213,12 +213,14 @@ func validateUpstreamLBMethod(lBMethod string, fieldPath *field.Path, isPlus boo
 	return allErrs
 }
 
-func validateUpstreamHealthCheck(hc *v1.HealthCheck, fieldPath *field.Path) field.ErrorList {
+func validateUpstreamHealthCheck(hc *v1.HealthCheck, typeName string, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if hc == nil {
 		return allErrs
 	}
+
+	allErrs = append(allErrs, validateGrpcHealthCheck(hc, typeName, fieldPath)...)
 
 	if hc.Path != "" {
 		allErrs = append(allErrs, validatePath(hc.Path, fieldPath.Child("path"))...)
@@ -242,6 +244,49 @@ func validateUpstreamHealthCheck(hc *v1.HealthCheck, fieldPath *field.Path) fiel
 		for _, msg := range validation.IsValidPortNum(hc.Port) {
 			allErrs = append(allErrs, field.Invalid(fieldPath.Child("port"), hc.Port, msg))
 		}
+	}
+
+	return allErrs
+}
+
+func validateGrpcHealthCheck(hc *v1.HealthCheck, typeName string, fieldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if typeName != "grpc" {
+		if hc.GRPCStatus != "" {
+			allErrs = append(allErrs, field.Invalid(fieldPath.Child("grpcStatus"), hc.GRPCStatus, "cannot specify `grpcStatus` on http type health checks"))
+		}
+		if hc.GRPCService != "" {
+			allErrs = append(allErrs, field.Invalid(fieldPath.Child("grpcService"), hc.GRPCService, "cannot specify `grpcService` on http type health checks"))
+		}
+		return allErrs
+	}
+
+	if hc.Path != "" {
+		allErrs = append(allErrs, field.Invalid(fieldPath.Child("path"), hc.Path, "cannot specify `path` on gRPC type health checks"))
+	}
+	if hc.StatusMatch != "" {
+		allErrs = append(allErrs, field.Invalid(fieldPath.Child("statusMatch"), hc.StatusMatch, "cannot specify `statusMatch` on gRPC type health checks"))
+	}
+
+	allErrs = append(allErrs, validateGrpcStatus(hc.GRPCStatus, fieldPath.Child("grpcStatus"))...)
+
+	if hc.GRPCService != "" {
+		allErrs = append(allErrs, validateStringNoVariables(hc.GRPCService, fieldPath.Child("grpcService"))...)
+	}
+
+	return allErrs
+}
+
+func validateGrpcStatus(s string, fieldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if s == "" {
+		return allErrs
+	}
+
+	if msg := validateGrpcStatusCode(s); msg != "" {
+		allErrs = append(allErrs, field.Invalid(fieldPath, s, msg))
 	}
 
 	return allErrs
@@ -379,6 +424,19 @@ func validateStatusCode(status string) string {
 	return ""
 }
 
+func validateGrpcStatusCode(status string) string {
+	code, errMsg := validateIntFromString(status)
+	if errMsg != "" {
+		return errMsg
+	}
+
+	if code > 16 {
+		return validation.InclusiveRangeError(0, 16)
+	}
+
+	return ""
+}
+
 func validateHeader(h v1.Header, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -445,7 +503,7 @@ func (vsv *VirtualServerValidator) validateUpstreams(upstreams []v1.Upstream, fi
 		allErrs = append(allErrs, validatePositiveIntOrZeroFromPointer(u.Keepalive, idxPath.Child("keepalive"))...)
 		allErrs = append(allErrs, validatePositiveIntOrZeroFromPointer(u.MaxConns, idxPath.Child("max-conns"))...)
 		allErrs = append(allErrs, validateOffset(u.ClientMaxBodySize, idxPath.Child("client-max-body-size"))...)
-		allErrs = append(allErrs, validateUpstreamHealthCheck(u.HealthCheck, idxPath.Child("healthCheck"))...)
+		allErrs = append(allErrs, validateUpstreamHealthCheck(u.HealthCheck, u.Type, idxPath.Child("healthCheck"))...)
 		allErrs = append(allErrs, validateTime(u.SlowStart, idxPath.Child("slow-start"))...)
 		allErrs = append(allErrs, validateBuffer(u.ProxyBuffers, idxPath.Child("buffers"))...)
 		allErrs = append(allErrs, validateSize(u.ProxyBufferSize, idxPath.Child("buffer-size"))...)

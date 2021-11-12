@@ -184,6 +184,7 @@ func newHealthCheckWithDefaults(
 		ProxyReadTimeout:    generateTimeWithDefault(upstream.ProxyReadTimeout, cfgParams.ProxyReadTimeout),
 		ProxySendTimeout:    generateTimeWithDefault(upstream.ProxySendTimeout, cfgParams.ProxySendTimeout),
 		Headers:             make(map[string]string),
+		GRPCPass:            generateGRPCPass(isGRPC(upstream.Type), upstream.TLS.Enable, upstreamName),
 	}
 }
 
@@ -1232,7 +1233,9 @@ func generateHealthCheck(
 
 	hc := newHealthCheckWithDefaults(upstream, upstreamName, cfgParams)
 
-	if upstream.HealthCheck.Path != "" {
+	if hc.GRPCPass != "" {
+		hc.URI = ""
+	} else if upstream.HealthCheck.Path != "" {
 		hc.URI = upstream.HealthCheck.Path
 	}
 
@@ -1278,6 +1281,14 @@ func generateHealthCheck(
 
 	if upstream.HealthCheck.StatusMatch != "" {
 		hc.Match = generateStatusMatchName(upstreamName)
+	}
+
+	if upstream.HealthCheck.GRPCStatus != "" {
+		hc.GRPCStatus = upstream.HealthCheck.GRPCStatus
+	}
+
+	if upstream.HealthCheck.GRPCService != "" {
+		hc.GRPCService = upstream.HealthCheck.GRPCService
 	}
 
 	return hc
