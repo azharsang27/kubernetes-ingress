@@ -2,12 +2,12 @@ name: nginx-ingress
 version: 0.11.3
 appVersion: 2.0.3
 apiVersion: v1
-kubeVersion: ">= 1.18.0"
+kubeVersion: ">= 1.18.0-r0"
 description: NGINX Ingress Controller
 icon: https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/v2.0.3/deployments/helm-chart/chart-icon.png
 home: https://github.com/azharsang27/kubernetes-ingress
 sources:
-  - https://github.com/azharsang27/kubernetes-ingress/tree/v2.0.3/deployments/helm-chart
+  - https://github.com/azharsang27/kubernetes-ingress/blob/v2.0.3/deployments/helm-chart
 keywords:
   - ingress
   - nginx
